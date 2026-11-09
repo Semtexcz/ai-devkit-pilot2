@@ -82,8 +82,7 @@ The default output is now `Hello from your-name!`, and `--name Ada` still
 overrides it.
 
 This edit is an exercise, not a change to the agreed behavior. The "Default
-greeting" requirement in
-`openspec/changes/add-greeting-name/specs/greeting/spec.md` and the exact-output
+greeting" requirement in `openspec/specs/greeting/spec.md` and the exact-output
 tests in `tests/test_main.py` both require `Hello from ai-devkit-pilot2!`, so
 restore the default before you verify:
 
