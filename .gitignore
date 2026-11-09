@@ -16,3 +16,8 @@ site/
 .cache/
 
 # Kept on purpose: uv.lock, mise.lock, .copier-answers.yml, AGENTS.md and docs.
+
+# Cezar runtime is private/local; track only reviewed declarative setup.
+.ai/cezar/*
+!.ai/cezar/workflows/
+!.ai/cezar/config.json

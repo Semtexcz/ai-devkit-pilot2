@@ -15,6 +15,7 @@ nav = [
     { "Run and verify the script" = "tutorials/run-the-script.md" },
   ] },
   { "How-to guides" = [
+    { "Run the cross-agent pilot" = "how-to/run-cross-agent-pilot.md" },
     { "Add a dependency" = "how-to/add-a-dependency.md" },
     { "Work with OpenSpec" = "how-to/use-openspec.md" },
     { "Update the shared overlay" = "how-to/update-the-overlay.md" },
@@ -23,6 +24,7 @@ nav = [
     { "Commands and versions" = "reference/commands.md" },
   ] },
   { "Explanation" = [
+    { "Cezar review boundary" = "explanation/cezar-review-boundary.md" },
     { "File ownership" = "explanation/ownership.md" },
   ] },
 ]

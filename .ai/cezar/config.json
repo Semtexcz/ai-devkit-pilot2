@@ -1,0 +1,12 @@
+{
+  "skillsRepos": [],
+  "defaultRunner": "opencode",
+  "taskWorkspace": "worktree",
+  "landing": "review",
+  "liveTitleUpdates": false,
+  "reviewGate": true,
+  "defaultModels": {
+    "opencode": "deepseek/deepseek-flash",
+    "codex": "gpt-6.1-sol"
+  }
+}
