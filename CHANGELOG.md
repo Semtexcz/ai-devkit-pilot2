@@ -13,6 +13,8 @@ project developer owns this file, and a `copier update` keeps the entries you ad
 
 ### Added
 
+- Optional `--name` greeting, command-line help and invalid-argument validation;
+  the default `Hello from ai-devkit-pilot2!` output is unchanged.
 - Local Cezar v2 cross-agent review pilot with commit-bound review evidence,
   deterministic checks, two bounded repair attempts and human acceptance.
 

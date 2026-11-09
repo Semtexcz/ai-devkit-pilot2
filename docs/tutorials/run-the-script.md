@@ -39,18 +39,36 @@ failure instead of a silent change.
 mise run start
 ```
 
-This runs `uv run --locked python main.py`. The output is whatever `main.py`
-prints.
+This runs `uv run --locked python main.py` and prints exactly:
+
+```text
+Hello from ai-devkit-pilot2!
+```
+
+Pass a name to replace the default:
+
+```bash
+uv run --locked python main.py --name Ada
+```
+
+That prints exactly `Hello from Ada!`. To discover the option and its value, run:
+
+```bash
+uv run --locked python main.py --help
+```
+
+The help lists `--name NAME`. An unknown argument, or `--name` without a value,
+writes a diagnostic to stderr and exits with a nonzero status without printing a
+greeting.
 
 ## Step 4: change the message
 
-Open `main.py` and change the printed text. Keep the type annotation on `main`:
-`mypy --strict` requires it, and the annotation was added by you rather than by
-the generator.
+Open `main.py` and change `DEFAULT_NAME` or the printed text. Keep the type
+annotations: `mypy --strict` requires them, and they were added by you rather than
+by the generator.
 
 ```python
-def main() -> None:
-    print("Your new message")
+DEFAULT_NAME = "your-name"
 ```
 
 Then run the script again:
@@ -59,6 +77,9 @@ Then run the script again:
 mise run start
 ```
 
+The default output is now `Hello from your-name!`, and `--name Ada` still
+overrides it.
+
 ## Step 5: verify
 
 ```bash
@@ -66,9 +87,10 @@ mise run check
 ```
 
 Every check must pass before the change is complete: locked dependencies, lint,
-formatting, types, tests, the documentation build and OpenSpec validation. The smoke
-test in `tests/test_main.py` runs `main.py` as a subprocess and asserts only that it
-succeeds and prints something, so it keeps passing when the message changes.
+formatting, types, tests, the documentation build and OpenSpec validation. The tests
+in `tests/test_main.py` run `main.py` as a subprocess and assert the exact default
+and named output, help, invalid-argument behavior and execution without site
+packages.
 
 If a check fails, fix the cause. Do not relax the checker configuration in
 `ruff.toml`, `mypy.ini` or `pytest.ini` to obtain a passing result.
