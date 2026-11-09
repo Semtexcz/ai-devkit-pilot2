@@ -14,3 +14,9 @@
 
 - Human reviews setup and chooses an approved application change for a real pilot.
 - Archive this tooling change after human acceptance.
+
+## 3. Verified container compatibility
+
+- [x] 3.1 Add host-side runtime verification and a root-owned lifetime-bound container record; adapt preflight and regression tests without weakening host defaults or changing the graph.
+- [x] 3.2 Document both security models and record the compatibility fix in CHANGELOG; run project checks, native graph simulation, OpenSpec validation, and live container rejection/acceptance probes.
+- [x] 3.3 Verify native authentication and backend/model metadata without inference; start only the isolated cockpit on localhost:4322 with an empty task form after human login.

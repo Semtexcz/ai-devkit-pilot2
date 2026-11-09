@@ -1,0 +1,175 @@
+{
+  "HostConfig": {
+    "Binds": [
+      "cezar-pilot2-isolated_project:/workspace:rw",
+      "cezar-pilot2-isolated_home:/home/pilot:rw"
+    ],
+    "ContainerIDFile": "",
+    "LogConfig": {
+      "Type": "json-file",
+      "Config": {}
+    },
+    "NetworkMode": "cezar-pilot2-isolated_pilot",
+    "PortBindings": {
+      "4322/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "4322"
+        }
+      ]
+    },
+    "RestartPolicy": {
+      "Name": "no",
+      "MaximumRetryCount": 0
+    },
+    "AutoRemove": false,
+    "VolumeDriver": "",
+    "VolumesFrom": null,
+    "ConsoleSize": [
+      0,
+      0
+    ],
+    "CapAdd": null,
+    "CapDrop": [
+      "ALL"
+    ],
+    "CgroupnsMode": "private",
+    "Dns": null,
+    "DnsOptions": null,
+    "DnsSearch": null,
+    "ExtraHosts": [],
+    "GroupAdd": null,
+    "IpcMode": "private",
+    "Cgroup": "",
+    "Links": null,
+    "OomScoreAdj": 0,
+    "PidMode": "",
+    "Privileged": false,
+    "PublishAllPorts": false,
+    "ReadonlyRootfs": true,
+    "SecurityOpt": [
+      "no-new-privileges:true"
+    ],
+    "Tmpfs": {
+      "/run": "rw,nosuid,nodev,noexec,size=16m,mode=755",
+      "/tmp": "rw,nosuid,nodev,size=2g,mode=1777"
+    },
+    "UTSMode": "",
+    "UsernsMode": "",
+    "ShmSize": 67108864,
+    "Runtime": "runc",
+    "Isolation": "",
+    "CpuShares": 0,
+    "Memory": 8589934592,
+    "NanoCpus": 4000000000,
+    "CgroupParent": "",
+    "BlkioWeight": 0,
+    "BlkioWeightDevice": null,
+    "BlkioDeviceReadBps": null,
+    "BlkioDeviceWriteBps": null,
+    "BlkioDeviceReadIOps": null,
+    "BlkioDeviceWriteIOps": null,
+    "CpuPeriod": 0,
+    "CpuQuota": 0,
+    "CpuRealtimePeriod": 0,
+    "CpuRealtimeRuntime": 0,
+    "CpusetCpus": "",
+    "CpusetMems": "",
+    "Devices": null,
+    "DeviceCgroupRules": null,
+    "DeviceRequests": null,
+    "MemoryReservation": 0,
+    "MemorySwap": 17179869184,
+    "MemorySwappiness": null,
+    "OomKillDisable": null,
+    "PidsLimit": 512,
+    "Ulimits": null,
+    "CpuCount": 0,
+    "CpuPercent": 0,
+    "IOMaximumIOps": 0,
+    "IOMaximumBandwidth": 0,
+    "MaskedPaths": [
+      "/proc/asound",
+      "/proc/acpi",
+      "/proc/interrupts",
+      "/proc/kcore",
+      "/proc/keys",
+      "/proc/latency_stats",
+      "/proc/timer_list",
+      "/proc/timer_stats",
+      "/proc/sched_debug",
+      "/proc/scsi",
+      "/sys/firmware",
+      "/sys/devices/virtual/powercap",
+      "/sys/devices/system/cpu/cpu0/thermal_throttle",
+      "/sys/devices/system/cpu/cpu1/thermal_throttle",
+      "/sys/devices/system/cpu/cpu2/thermal_throttle",
+      "/sys/devices/system/cpu/cpu3/thermal_throttle",
+      "/sys/devices/system/cpu/cpu4/thermal_throttle",
+      "/sys/devices/system/cpu/cpu5/thermal_throttle",
+      "/sys/devices/system/cpu/cpu6/thermal_throttle",
+      "/sys/devices/system/cpu/cpu7/thermal_throttle",
+      "/sys/devices/system/cpu/cpu8/thermal_throttle",
+      "/sys/devices/system/cpu/cpu9/thermal_throttle",
+      "/sys/devices/system/cpu/cpu10/thermal_throttle",
+      "/sys/devices/system/cpu/cpu11/thermal_throttle"
+    ],
+    "ReadonlyPaths": [
+      "/proc/bus",
+      "/proc/fs",
+      "/proc/irq",
+      "/proc/sys",
+      "/proc/sysrq-trigger"
+    ],
+    "Init": true
+  },
+  "Config": {
+    "User": "1000:1000",
+    "WorkingDir": "/workspace",
+    "Env": [
+      "CEZ_CODEX_NETWORK=1",
+      "PATH=/opt/agents/bin:/usr/local/bin:/usr/bin:/bin",
+      "MISE_DATA_DIR=/opt/mise",
+      "MISE_CACHE_DIR=/home/pilot/.cache/mise",
+      "MISE_STATE_DIR=/home/pilot/.local/state/mise",
+      "MISE_YES=1",
+      "HOME=/home/pilot",
+      "MISE_TRUSTED_CONFIG_PATHS=/workspace",
+      "CEZAR_DIST=/opt/agents/lib/node_modules/@open-mercato/cezar/dist",
+      "CEZ_HOME=/home/pilot/.cezar",
+      "CEZ_AUTONAME=0",
+      "CEZ_TITLE_UPDATES=0",
+      "CEZ_DISPATCH=0",
+      "CEZ_AUTOMATIONS=0",
+      "CEZ_TELEMETRY=0",
+      "UV_CACHE_DIR=/home/pilot/.cache/uv"
+    ]
+  },
+  "State": {
+    "Running": true
+  },
+  "Image": "sha256:94a1cde48f9cc284f4f30fd3affe49f4d343724408b76df8d211f0abbed991e5",
+  "AppArmorProfile": "docker-default",
+  "Mounts": [
+    {
+      "Type": "volume",
+      "Name": "cezar-pilot2-isolated_home",
+      "Source": "/var/lib/docker/volumes/cezar-pilot2-isolated_home/_data",
+      "Destination": "/home/pilot",
+      "Driver": "local",
+      "Mode": "rw",
+      "RW": true,
+      "Propagation": ""
+    },
+    {
+      "Type": "volume",
+      "Name": "cezar-pilot2-isolated_project",
+      "Source": "/var/lib/docker/volumes/cezar-pilot2-isolated_project/_data",
+      "Destination": "/workspace",
+      "Driver": "local",
+      "Mode": "rw",
+      "RW": true,
+      "Propagation": ""
+    }
+  ]
+}

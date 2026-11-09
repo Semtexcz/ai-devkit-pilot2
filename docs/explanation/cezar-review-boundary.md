@@ -8,13 +8,35 @@ The simulation script exercises Cezar's own walker rather than implementing a
 second production runtime.
 
 A fresh session separates implementation from review context. It does not isolate
-filesystem authority. Cezar's Codex backend defaults to full access; the pilot
-startup explicitly selects workspace-write, which still allows edits and commits.
-OpenCode retains broad host permissions. Neither a worktree nor a review prompt
+filesystem authority. Cezar's Codex backend defaults to full access. Host startup
+requires `CEZ_CODEX_NETWORK=0` (workspace-write, which still allows edits and commits).
+The explicitly verified Docker pilot uses `CEZ_CODEX_NETWORK=1` (full access
+**inside the container**); Docker supplies its filesystem and process boundary.
+This avoids nested Bubblewrap, without granting capabilities or disabling Docker
+seccomp/AppArmor. OpenCode also relies on that outer boundary. Neither a worktree nor a review prompt
 creates an OS security boundary. The post-review guard detects final HEAD, index,
 tracked and untracked changes; it cannot prove the absence of transient writes,
 outside-worktree effects or reads. These limits require a disposable environment
 and human acceptance.
+
+An environment variable or `/.dockerenv` is not proof of isolation. The host-side
+`scripts/verify_cezar_container.py` checks the pinned image, non-root UID, read-only
+root filesystem, capabilities, default security profiles, namespaces, exact port
+binding and two Docker-managed volumes (including volume driver options). It
+provisions a non-secret root-owned read-only record in `/run`. The guard requires
+protected parents, checks live kernel restrictions, and compares namespaces,
+mount-table digest and PID 1 start time with that record. A restart requires
+verification again. The short root provisioning process retains all container
+restrictions and only writes this record; agents and Cezar run as UID 1000.
+
+The host verifier requires Docker administrative access; the container has none.
+Its image ID and paths intentionally target this one prepared pilot. This is a
+startup guard against mistakes and workload-created opt-ins, not a new sandbox,
+cryptographic remote attestation, or protection against a hostile Docker operator.
+The workload can still rewrite its project guard and Cezar state. Docker's actual
+boundary, human review and the absence of delivery credentials remain essential.
+Full access inside Docker permits reads of the disposable native login stores;
+it must never be used with host credentials or unrelated mounted data.
 
 Cezar autosaves, so an explicit commit node may have nothing left to commit. The
 review anchor is the clean actual HEAD after that node, never its optional output

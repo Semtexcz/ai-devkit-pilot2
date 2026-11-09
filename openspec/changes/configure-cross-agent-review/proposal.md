@@ -11,6 +11,10 @@ before real model execution.
 - Adapt Cezar's implement-review-pr v2 graph for local checks, commits and review.
 - Add a commit-bound evidence guard and offline native-graph simulations.
 - Document permissions, runtime exclusions and real-pilot startup.
+- Permit native Codex full access only inside the explicitly verified disposable
+  Docker runtime, while retaining workspace-write for host execution. Verify the
+  outer boundary independently, test rejection paths, and prepare native login
+  and an empty cockpit without starting an application task.
 
 ## Capabilities
 

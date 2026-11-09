@@ -1,6 +1,9 @@
 """Exercise the evidence guard against real disposable local Git repositories."""
 
 import importlib.util
+import json
+import os
+import stat
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -136,3 +139,127 @@ def test_preflight_boundaries(
     else:
         with pytest.raises(ValueError):
             GUARD.main()
+
+
+@pytest.mark.parametrize("mode", [None, "", "true", "2", "1"])
+def test_environment_alone_cannot_enable_full_access(
+    monkeypatch: pytest.MonkeyPatch, mode: str | None, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(GUARD, "ATTESTATION", tmp_path / "missing")
+    monkeypatch.setenv("CEZ_PILOT_CONTAINER", "1")
+    if mode is None:
+        monkeypatch.delenv("CEZ_CODEX_NETWORK", raising=False)
+    else:
+        monkeypatch.setenv("CEZ_CODEX_NETWORK", mode)
+    with pytest.raises(ValueError):
+        GUARD.verify_codex_mode()
+
+
+@pytest.fixture
+def container_record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    record = tmp_path / "verified.json"
+    record.write_text(json.dumps({"schema": 1, "runtime": "current"}))
+    record.chmod(0o444)
+    monkeypatch.setattr(GUARD, "ATTESTATION", record)
+    original_stat = Path.stat
+    original_fstat = os.fstat
+
+    def root_info(info: os.stat_result, *, mode: int | None = None) -> os.stat_result:
+        fields = list(info)
+        fields[4] = 0
+        if mode is not None:
+            fields[0] = mode
+        return os.stat_result(fields)
+
+    def protected_parent(path: Path, **kwargs: Any) -> os.stat_result:
+        info = original_stat(path, **kwargs)
+        return root_info(info, mode=stat.S_IFDIR | 0o755) if path in record.parents else info
+
+    monkeypatch.setattr(Path, "stat", protected_parent)
+    monkeypatch.setattr(os, "access", lambda *_args: False)
+    monkeypatch.setattr(os, "fstat", lambda fd: root_info(original_fstat(fd)))
+    monkeypatch.setattr(GUARD, "container_state", lambda: {"schema": 1, "runtime": "current"})
+    monkeypatch.setattr(GUARD, "git", lambda *_args: "/workspace/.git")
+    monkeypatch.setenv("HOME", "/home/pilot")
+    monkeypatch.setenv("CEZ_HOME", "/home/pilot/.cezar")
+    monkeypatch.setenv("CEZ_CODEX_NETWORK", "1")
+    return record
+
+
+def test_verified_record_permits_container_mode(container_record: Path) -> None:
+    GUARD.verify_codex_mode()
+
+
+@pytest.mark.parametrize(
+    "problem", ["owner", "writable", "parent", "symlink", "stale", "home", "checkout"]
+)
+def test_untrusted_or_stale_container_record_rejected(
+    container_record: Path, monkeypatch: pytest.MonkeyPatch, problem: str
+) -> None:
+    if problem == "owner":
+        actual_fstat = os.fstat
+
+        def workload_owned(fd: int) -> os.stat_result:
+            fields = list(actual_fstat(fd))
+            fields[4] = 1000
+            return os.stat_result(fields)
+
+        monkeypatch.setattr(os, "fstat", workload_owned)
+    elif problem == "writable":
+        container_record.chmod(0o644)
+    elif problem == "parent":
+        monkeypatch.setattr(os, "access", lambda *_args: True)
+    elif problem == "symlink":
+        link = container_record.with_name("symlink.json")
+        link.symlink_to(container_record)
+        monkeypatch.setattr(GUARD, "ATTESTATION", link)
+    elif problem == "stale":
+        monkeypatch.setattr(GUARD, "container_state", lambda: {"schema": 1, "runtime": "restarted"})
+    elif problem == "home":
+        monkeypatch.setenv("CEZ_HOME", "/workspace/user-controlled")
+    else:
+        monkeypatch.setattr(GUARD, "git", lambda *_args: "/another-project/.git")
+    with pytest.raises(ValueError):
+        GUARD.verify_codex_mode()
+
+
+@pytest.mark.parametrize(
+    "problem", [None, "root", "writable-root", "capability", "seccomp", "privileges", "apparmor"]
+)
+def test_kernel_restrictions_are_checked(
+    monkeypatch: pytest.MonkeyPatch, problem: str | None
+) -> None:
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(os, "getuid", lambda: 0 if problem == "root" else 1000)
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(os, "getgid", lambda: 1000)
+    monkeypatch.setattr(
+        os,
+        "statvfs",
+        lambda _path: SimpleNamespace(f_flag=0 if problem == "writable-root" else os.ST_RDONLY),
+    )
+    status = {key: "0" for key in ("CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb")}
+    status.update(NoNewPrivs="1", Seccomp="2")
+    if problem == "capability":
+        status["CapBnd"] = "1"
+    if problem == "seccomp":
+        status["Seccomp"] = "0"
+    if problem == "privileges":
+        status["NoNewPrivs"] = "0"
+    files = {
+        "/proc/self/status": "\n".join(f"{key}: {value}" for key, value in status.items()),
+        "/proc/self/attr/current": "unconfined"
+        if problem == "apparmor"
+        else "docker-default (enforce)",
+        "/proc/1/stat": "1 (init) " + " ".join(["0"] * 20),
+    }
+    monkeypatch.setattr(Path, "read_text", lambda path: files[str(path)])
+    monkeypatch.setattr(Path, "read_bytes", lambda _path: b"mount-table")
+    monkeypatch.setattr(Path, "exists", lambda _path: False)
+    monkeypatch.setattr(os, "readlink", lambda path: str(path))
+    if problem is None:
+        assert GUARD.container_state()["schema"] == 1
+    else:
+        with pytest.raises(ValueError):
+            GUARD.container_state()

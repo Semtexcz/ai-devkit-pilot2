@@ -88,6 +88,82 @@ and fake GitHub operations, not as proof that mixed-runner turns are never invok
 
 ## Effective permissions and limitations
 
+There are two distinct execution models. The host mode below **requires**
+`CEZ_CODEX_NETWORK=0`; it does not provide the requested outer isolation for
+OpenCode. Use the verified container mode for this live pilot. The workflow graph,
+model pins, two-repair bound and final human gate are identical in both modes.
+
+### Verified disposable Docker pilot
+
+The prepared configuration is
+`/tmp/cezar-pilot2-isolated-20261109/compose.yaml`. It preserves non-root UID 1000,
+a read-only root filesystem, all capabilities dropped, no-new-privileges, Docker
+default seccomp/AppArmor, private namespaces, two disposable named volumes,
+runtime tmpfs, and only `127.0.0.1:4322:4322` published on a dedicated bridge.
+No host paths, credentials or sockets are bound into it. Only the Compose service
+environment overrides `CEZ_CODEX_NETWORK` to `1`; the base image and host retain
+`0`. The Docker daemon is rootful; the workload is not.
+
+Cezar 0.19.0's installed `codexThreadOverrides` selects `workspace-write` exactly
+when this variable equals `0`; otherwise it selects `danger-full-access`, always
+with `approvalPolicy: never`. The name is misleading: `1` changes sandbox mode,
+not just networking. The nested workspace-write Bubblewrap probe failed inside
+the hardened container. The full-access native shell probe succeeds without
+inference and keeps the outer Docker boundary. No security profile is disabled.
+
+Prepare/restart the idle container and verify it **from the host project root**:
+
+```bash
+docker compose -f /tmp/cezar-pilot2-isolated-20261109/compose.yaml up -d --no-build
+mise exec -- python scripts/verify_cezar_container.py
+```
+
+The verifier fails closed on deviations and writes a root-owned read-only
+`/run/cezar-pilot-attestation.json`. The project preflight accepts `1` only with
+that protected record and matching live runtime state, fixed agent/Cezar homes
+and `/workspace` Git common directory. Environment-only opt-ins, writable records,
+symlinks, stale records and changed namespaces/mounts fail. See
+[the boundary rationale](../explanation/cezar-review-boundary.md).
+
+Authenticate directly in a human terminal, without copying host credentials:
+
+```bash
+docker exec -it cezar-pilot2-isolated mise exec -- codex login --device-auth
+docker exec -it cezar-pilot2-isolated mise exec -- opencode auth login deepseek
+docker exec cezar-pilot2-isolated mise exec -- codex login status
+docker exec cezar-pilot2-isolated mise exec -- opencode auth list
+```
+
+Enter provider secrets only in the native terminal prompt. Skip DeepSeek login if
+already connected. Metadata discovery and login status are not proof of successful
+inference or quota. Do not run an inference during setup.
+
+Transfer the reviewed tooling update to the disposable checkout, run
+`mise run check`, native graph simulation and OpenSpec validation **inside** it,
+and commit the setup locally there so new task worktrees contain it. Do not commit
+credentials, runtime state or delivery authority. After verification and human
+authentication, start only the cockpit:
+
+```bash
+docker exec -d cezar-pilot2-isolated bash -c 'umask 077; exec mise exec -- cezar --repo /workspace --bind-host 0.0.0.0 --port 4322 --no-open > /home/pilot/cezar.log 2>&1'
+```
+
+Docker publishes that container listener only on host loopback. Open
+`http://127.0.0.1:4322`, confirm `pilot-cross-review` is listed, and leave the task
+form empty. No start action is authorized during setup. The server uses its fresh
+HOME/CEZ_HOME with maxParallel=1, autoResumeOnUsageLimit=false, no fallback accounts,
+dispatch/automations/autonaming/title updates/telemetry disabled, worktree task
+workspace and review landing. No GitHub/delivery login is configured.
+
+Stop with `docker compose -f /tmp/cezar-pilot2-isolated-20261109/compose.yaml stop`.
+Restart with `start`, then rerun the host verifier (the `/run` record was cleared),
+confirm native login status and start the cockpit with the same command. Project
+and authentication data persist only in the disposable volumes. `/tmp` preparation
+files can be removed by host cleanup; retain the reviewed configuration before
+reboot if needed. The original host service is independent and must remain intact.
+
+### Original host mode (not the live isolated pilot)
+
 The setup agent's sandbox allows writes to this repository and `/tmp`, restricts
 network access and has read-only access elsewhere. Metadata probes initially failed
 because native CLIs tried writing their logs/caches outside that boundary. The

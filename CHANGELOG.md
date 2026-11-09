@@ -19,3 +19,6 @@ project developer owns this file, and a `copier update` keeps the entries you ad
 ### Changed
 
 ### Fixed
+
+- Allow Codex in the verified disposable Docker pilot without nested Bubblewrap,
+  while retaining the host workspace-write requirement and all Docker restrictions.
