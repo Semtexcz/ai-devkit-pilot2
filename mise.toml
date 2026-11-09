@@ -1,0 +1,88 @@
+# Project toolchain.
+#
+# mise owns the Python interpreter, the uv CLI, the Node.js runtime behind
+# OpenSpec, and the task definitions below.
+# uv owns the virtual environment and the Python dependencies recorded in
+# `pyproject.toml` and `uv.lock`. Neither is duplicated here: a tool version lives
+# in `[tools]`, a Python package version lives in `pyproject.toml`.
+#
+# Install with:  mise install
+# Sync Python:   uv sync --locked
+# Initialize specs: openspec init --tools opencode,codex --profile core
+
+min_version = "2026.11.1"
+
+[settings]
+# Checks run one at a time. On a fresh checkout every check would otherwise create
+# `.venv` concurrently and race on the same directory; sequential execution makes
+# `mise run check` deterministic and keeps the output readable.
+jobs = 1
+# mise.lock records artifacts for the acceptance platform only. Add platforms
+# here (for example "macos-arm64") before relying on the same lockfile elsewhere.
+lockfile_platforms = ["linux-x64"]
+
+[env]
+# Python has exactly one owner: mise installs and selects the interpreter, so uv
+# must never download or prefer one of its own. `UV_NO_MANAGED_PYTHON` implies
+# "only-system" preference and cannot be combined with an explicit
+# `UV_PYTHON_PREFERENCE`, so it is set alone next to the download switch.
+# uv's equivalent `[tool.uv]` settings belong in `pyproject.toml`, which this
+# overlay does not manage.
+UV_NO_MANAGED_PYTHON = "1"
+UV_PYTHON_DOWNLOADS = "never"
+
+[tools]
+python = "3.13.18"
+"aqua:astral-sh/uv" = "0.13.7"
+# OpenSpec is a Node.js CLI. Node.js is pinned because OpenSpec needs it to start,
+# and the npm backend is declared with the published package name.
+node = "24.22.2"
+"npm:@fission-ai/openspec" = "1.16.0"
+
+[tasks.check]
+description = "Run every check: locked dependencies, lint, format, types, tests, docs and specs"
+depends = ["lock-check", "lint", "format-check", "typecheck", "test", "docs", "spec-check"]
+
+[tasks."lock-check"]
+description = "Verify that uv.lock matches pyproject.toml"
+run = "uv lock --check"
+
+[tasks.lint]
+description = "Lint the project with Ruff"
+run = "uv run --locked ruff check ."
+
+[tasks."format-check"]
+description = "Check formatting with Ruff without rewriting files"
+run = "uv run --locked ruff format --check ."
+
+[tasks.format]
+description = "Apply Ruff formatting and safe lint fixes"
+run = "uv run --locked ruff format . && uv run --locked ruff check --fix ."
+
+[tasks.typecheck]
+description = "Type-check the entry point with mypy --strict"
+run = "uv run --locked mypy --strict main.py"
+
+[tasks.test]
+description = "Run the test suite with pytest"
+run = "uv run --locked pytest"
+
+[tasks.docs]
+description = "Build the documentation site; fails on broken internal links"
+run = "uv run --locked zensical build --strict"
+
+[tasks."docs-serve"]
+description = "Preview the documentation site locally with live reload"
+run = "uv run --locked zensical serve"
+
+[tasks."spec-check"]
+description = "Validate every OpenSpec change and specification with the native CLI"
+run = "openspec validate --all --strict --no-interactive"
+
+[tasks.start]
+description = "Run the script entry point"
+run = "uv run --locked python main.py"
+
+[tasks."lock-tools"]
+description = "Regenerate mise.lock for the pinned tools; commit the result"
+run = "mise lock"

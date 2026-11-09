@@ -1,0 +1,9 @@
+# Ruff: lint and format policy only.
+#
+# Tool versions are declared in `pyproject.toml` (installed by uv) and
+# `mise.toml`. No dependency is declared here.
+line-length = 100
+target-version = "py313"
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]

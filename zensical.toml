@@ -1,0 +1,47 @@
+[project]
+site_name = "ai-devkit-pilot2"
+site_description = "A small Python script project."
+site_author = "ai-devkit-pilot2 maintainers"
+docs_dir = "docs"
+site_dir = "site"
+
+# Fail the build when link validation reports a problem. `mise run docs` also
+# passes --strict so the check does not depend on this setting alone.
+strict = true
+
+nav = [
+  { "Home" = "index.md" },
+  { "Tutorials" = [
+    { "Run and verify the script" = "tutorials/run-the-script.md" },
+  ] },
+  { "How-to guides" = [
+    { "Add a dependency" = "how-to/add-a-dependency.md" },
+    { "Work with OpenSpec" = "how-to/use-openspec.md" },
+    { "Update the shared overlay" = "how-to/update-the-overlay.md" },
+  ] },
+  { "Reference" = [
+    { "Commands and versions" = "reference/commands.md" },
+  ] },
+  { "Explanation" = [
+    { "File ownership" = "explanation/ownership.md" },
+  ] },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "navigation.sections",
+  "navigation.indexes",
+  "navigation.top",
+  "navigation.footer",
+  "navigation.tracking",
+  "content.code.copy",
+  "search.highlight",
+]
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+toc.permalink = true

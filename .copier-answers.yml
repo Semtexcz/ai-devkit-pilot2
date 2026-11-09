@@ -1,0 +1,11 @@
+# Changes here will be overwritten by Copier when you run `copier update`.
+#
+# Commit this file. It records the template source (`_src_path`) and the template
+# version (`_commit`) that generated the project, which is what makes
+# `copier update --vcs-ref <tag>` possible later. Do not edit it by hand.
+#
+# See docs/how-to/update-the-overlay.md.
+_commit: v0.1.0
+_src_path: /mnt/Data/1_Drive/1_Projekty/10_Aktivní/Software/ai-devkit
+project_description: A small Python script project.
+project_name: ai-devkit-pilot2
