@@ -52,18 +52,23 @@ nodes:
       credentials/unrelated projects, or start agents. This prompt is not a sandbox.
       Return the COMPLETE review in fewer than 3500 characters. Never omit blocking
       findings to fit: if it cannot fit or evidence is unavailable, use unverifiable.
-      Format (first line must contain the exact expected full SHA):
+      Use plain text. Begin the final response with these TWO SEPARATE exact
+      machine-readable header lines; no Markdown, leading prose or extra text on
+      either line. Substitute only the expected full 40-character lowercase SHA:
       Reviewed-commit: <full HEAD>
       Evidence: verified
       Findings: No findings OR findings ordered by severity with IDs, file:line,
       observed/expected behavior, reproduction/evidence and blocking status.
-      Each blocking finding starts a line with [blocking] F1 (then F2 etc.).
+      Give each finding a unique ID (F1, F2, etc.) and one line in this exact form:
+      [blocking] F1 — path/to/file:123 — severity; observed/expected; evidence
+      Use [nonblocking] for nonblocking findings in the same form. Never omit the
+      file, positive line number or explanation. No duplicate finding IDs.
       An approval includes a separate line: No blocking findings
       Include nonblocking observations, compatibility/release assessment, limitations
-      and usage/cost (unavailable if absent). End with exactly one human verdict:
-      APPROVE
-      or REQUEST CHANGES
-      Then the native marker: CEZ:VERDICT approve or CEZ:VERDICT changes respectively.
+      and usage/cost (unavailable if absent). End with exactly TWO SEPARATE lines:
+      the human verdict APPROVE followed by CEZ:VERDICT approve on its own last
+      line, or REQUEST CHANGES followed by CEZ:VERDICT changes on its own last line.
+      Emit each verdict once. Never combine the human verdict and native marker.
       If HEAD differs, scope/evidence cannot be verified, output is incomplete or
       infrastructure fails, end with CEZ:VERDICT unverifiable instead of approving.
       All findings must be in this final response, including after any verdict nudge.

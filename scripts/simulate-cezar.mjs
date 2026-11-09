@@ -1,13 +1,14 @@
 // Offline assertions against Cezar's own loader, walker and template renderer.
 // No runner, server, shell check, or model is executed by this script.
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 const dist = process.env.CEZAR_DIST;
 assert.ok(dist, 'Set CEZAR_DIST to the installed Cezar dist directory');
 const native = async (file) => import(pathToFileURL(`${dist}/${file}`).href);
 const { loadWorkflows } = await native('workflows/load.js');
-const { advance, enterGraph, parseVerdict, renderNodeRefs } = await native('workflows/graph.js');
+const { advance, enterGraph, parseVerdict, stripVerdictMarker, renderNodeRefs } = await native('workflows/graph.js');
 const catalog = await loadWorkflows(process.cwd());
 assert.deepEqual(catalog.issues, []);
 const workflow = catalog.workflows.find(w => w.name === 'pilot-cross-review');
@@ -28,6 +29,11 @@ assert.ok(prompt.includes('b'.repeat(40)));
 assert.equal(parseVerdict('APPROVE\nCEZ:VERDICT approve', ['approve', 'changes']), 'approve');
 assert.equal(parseVerdict('REQUEST CHANGES\nCEZ:VERDICT changes', ['approve', 'changes']), 'changes');
 assert.equal(parseVerdict('APPROVE', ['approve', 'changes']), null);
+const live = JSON.parse(await readFile(new URL('../tests/fixtures/cezar-first-live-review.json', import.meta.url), 'utf8'));
+assert.equal(parseVerdict(live.final_response, ['approve', 'changes', 'unverifiable']), live.review.verdict);
+assert.ok(live.review.summary.endsWith(stripVerdictMarker(live.final_response)));
+assert.ok(!live.review.summary.includes('CEZ:VERDICT'));
+assert.ok(live.review.summary.startsWith('I’ll verify HEAD first,'));
 
 function simulate(name, overrides = {}, reviews = ['approve'], end = 'accepted', repairs = 0) {
   const counters = new Map();
@@ -70,4 +76,4 @@ simulate('human rejection', { human: 'reject' }, ['approve'], 'stopped');
 simulate('human timeout', { human: 'timeout' }, ['approve'], 'stopped');
 simulate('unverifiable review', {}, ['unverifiable'], 'stopped');
 simulate('missing verdict after native reminder', { review: 'failed' }, [], 'stopped');
-console.log('PASS native load, graph bounds, model/session pins, verdict mapping, findings interpolation, no delivery nodes');
+console.log('PASS native load, graph bounds, model/session pins, verdict mapping/stripping with live fixture, findings interpolation, no delivery nodes');

@@ -15,6 +15,10 @@ before real model execution.
   Docker runtime, while retaining workspace-write for host execution. Verify the
   outer boundary independently, test rejection paths, and prepare native login
   and an empty cockpit without starting an application task.
+- Repair the first live run's evidence-format incompatibility using its exact
+  stored summary and final response as regression fixtures. Keep exact SHA,
+  verdict and Git integrity checks, clarify the review prompt, and investigate
+  branch selection and recovery without changing runtime records or running models.
 
 ## Capabilities
 

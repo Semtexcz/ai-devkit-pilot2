@@ -103,28 +103,82 @@ def current_record() -> dict[str, Any]:
     raise ValueError("current native run checkpoint unavailable")
 
 
+def verify_report(report: str, verdict: str, head: str) -> None:
+    """Parse bounded native evidence without changing the stored record."""
+    if not isinstance(report, str) or len(report) >= 3500:
+        raise ValueError("review report missing, oversized or potentially truncated")
+    lines = report.splitlines()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    expected = {"approve": "APPROVE", "changes": "REQUEST CHANGES"}
+    if verdict not in expected:
+        raise ValueError("review verdict unavailable")
+
+    # Cezar can prepend commentary to the final response. Find ONE exact header,
+    # never a SHA substring, and reject other mentions rather than choosing one.
+    headers = [i for i, line in enumerate(lines) if line.startswith("Reviewed-commit:")]
+    if len(headers) != 1 or len(re.findall("Reviewed-commit", report, re.I)) != 1:
+        raise ValueError("missing or ambiguous Reviewed-commit header")
+    index = headers[0]
+    header = re.fullmatch(r"Reviewed-commit: ([0-9a-f]{40})( Evidence: verified)?", lines[index])
+    if header is None or header[1] != head:
+        raise ValueError("report does not refer to current committed HEAD")
+    inline = header[2] is not None
+    evidence_headers = re.findall(r"(?im)^[^\w\n]*Evidence[ \t]*:", report)
+    if len(evidence_headers) != (0 if inline else 1) or (
+        not inline and lines[index + 1 : index + 2] != ["Evidence: verified"]
+    ):
+        raise ValueError("missing, ambiguous or unverified evidence header")
+
+    # Native summaries strip the marker. The persisted native verdict is still
+    # mandatory; when a marker survives, require one matching final marker line.
+    markers = re.findall("CEZ:VERDICT", report, re.I)
+    if markers:
+        if len(markers) != 1 or lines[-1] != f"CEZ:VERDICT {verdict}":
+            raise ValueError("inconsistent or malformed native verdict marker")
+        lines.pop()
+    human_verdicts = re.findall(r"\b(?:APPROVE|REQUEST CHANGES)\b", "\n".join(lines))
+    if human_verdicts != [expected[verdict]] or lines[-1] != expected[verdict]:
+        raise ValueError("unverifiable or inconsistent report")
+
+    findings: dict[str, str] = {}
+    for i, line in enumerate(lines):
+        if not re.match(r"(?:[-*] )?(?:\[|F(?:[0-9]|\b))", line.lstrip()):
+            continue
+        # Canonical repair format, plus the first live review's nonblocking form.
+        finding = re.fullmatch(
+            r"\[(blocking|nonblocking)\] (F[1-9][0-9]*) — [^\s:]+:[1-9][0-9]* — (\S.*)",
+            line,
+        )
+        legacy = re.fullmatch(
+            r"- (F[1-9][0-9]*) — (?:Low|Medium|High), (nonblocking) — "
+            r"[^\s:]+:[1-9][0-9]*: (\S.*)",
+            line,
+        )
+        if finding:
+            status, finding_id = finding[1], finding[2]
+        elif legacy:
+            finding_id, status = legacy[1], legacy[2]
+        else:
+            raise ValueError("malformed review finding")
+        if finding_id in findings or i <= index + (not inline):
+            raise ValueError("duplicate or misplaced review finding")
+        findings[finding_id] = status
+    blocking = "blocking" in findings.values()
+    assessments = lines.count("No blocking findings")
+    if verdict == "approve" and (blocking or assessments != 1):
+        raise ValueError("approval lacks consistent blocking-findings assessment")
+    if verdict == "changes" and (not blocking or assessments):
+        raise ValueError("rejection has no consistent repair findings")
+
+
 def audit(record: dict[str, Any]) -> None:
     clean()
     outputs = record["graphState"]["outputs"]
     head = outputs["snapshot"]["output"].strip()
     if not re.fullmatch(r"[0-9a-f]{40}", head) or git("rev-parse", "HEAD") != head:
         raise ValueError("reviewer changed HEAD, or snapshot is invalid")
-    report = outputs["review"]["summary"]
-    verdict = outputs["review"]["verdict"]
-    if not isinstance(report, str) or len(report) >= 3500:
-        raise ValueError("review report missing, oversized or potentially truncated")
-    lines = report.strip().splitlines()
-    expected = {"approve": "APPROVE", "changes": "REQUEST CHANGES"}
-    if verdict not in expected:
-        raise ValueError("review verdict unavailable")
-    if not lines or lines[0] != f"Reviewed-commit: {head}":
-        raise ValueError("report does not refer to current committed HEAD")
-    if lines[-1] != expected[verdict] or "Evidence: verified" not in lines:
-        raise ValueError("unverifiable or inconsistent report")
-    if verdict == "approve" and "No blocking findings" not in lines:
-        raise ValueError("approval lacks explicit blocking-findings assessment")
-    if verdict == "changes" and not any(line.startswith("[blocking] F") for line in lines):
-        raise ValueError("rejection has no repair findings")
+    verify_report(outputs["review"]["summary"], outputs["review"]["verdict"], head)
 
 
 def main() -> None:

@@ -20,5 +20,8 @@ project developer owns this file, and a `copier update` keeps the entries you ad
 
 ### Fixed
 
+- Accept unambiguous commit-bound Cezar review evidence with commentary before
+  the headers, a combined SHA/evidence header, or a stripped native verdict marker;
+  reject duplicate headers, conflicting verdicts and malformed repair findings.
 - Allow Codex in the verified disposable Docker pilot without nested Bubblewrap,
   while retaining the host workspace-write requirement and all Docker restrictions.
