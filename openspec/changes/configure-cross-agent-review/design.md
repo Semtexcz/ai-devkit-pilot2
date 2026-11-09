@@ -33,6 +33,16 @@ Cezar's debounced index write to become visible; it never retries agents.
 
 ## Migration Plan
 
+The first-live-run follow-up accepts a single exact Reviewed-commit header even
+when Cezar prepends reviewer commentary, and allows Evidence: verified either on
+the next line or appended to that header with one space. SHA matching remains
+bound to the snapshot and actual full HEAD. Reports must contain one consistent
+human verdict and the native record verdict; an optional native marker must
+agree and occupy its own final line. Findings need unique IDs, blocking status,
+file:line and a nonempty explanation. Preserve the original runtime evidence;
+exercise extracted fixtures against disposable Git repositories. No inference,
+runtime record rewrites, delivery or greeting change belongs to this repair.
+
 Commit reviewed setup locally before starting a task worktree. Select a separately
 approved application change. Keep runtime ignored; removal of workflow/config
 reverses setup. Human acceptance and archive remain separate.

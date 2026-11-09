@@ -2,8 +2,9 @@
 
 This setup adapts Cezar **0.19.0**, native workflow format **v2**, from its bundled
 `implement-review-pr`. The workflow is `.ai/cezar/workflows/pilot-cross-review.yaml`.
-The user authorized configuration and offline simulation; no real agent turn ran.
-The application still needs a separately approved OpenSpec change.
+Setup used offline simulation. The first live application run later reached
+independent review and stopped at the evidence audit; see the investigation below.
+Application runs require a separately approved OpenSpec change.
 
 Sources: [Cezar official reference](https://github.com/open-mercato/cezar/blob/main/docs/reference.md),
 [installed-version source](https://github.com/open-mercato/cezar/tree/v0.19.0/packages/cezar),
@@ -259,8 +260,104 @@ investigation. A missing verdict may add one automatic reminder. The human gate
 expires after 24 hours; cancellation/Finish is a manual intervention, not evidence
 of approval or a successful pilot. Accepting a gate causes no delivery action.
 
-Not verified until a real pilot: provider inference, remaining quota/cost, actual
+Originally not verified during setup: provider inference, remaining quota/cost, actual
 fresh-session IDs, native protocol handoff and persistence timing under real turns,
 Codex OS sandbox operation, complete findings retention from real reviews, and
 end-to-end human-gate UI behavior. Repeat setup validation after changing Cezar;
 the guard consumes the pinned version's native run-record shape.
+
+## First live run: evidence formatting repair
+
+Run `215e70d7-f8af-4154-9dc6-dcb84ae37d04` on 2026-11-09 implemented
+`add-greeting-name` and passed its pre-review checks (70 tests). Its independent
+Codex review returned native `approve`, human `APPROVE`, no blocking findings and
+one low, nonblocking tutorial observation. The clean implementation remains on
+`cez/215e70d7` at `2f577f52acb3822a61d9c4f74fc9fa3dc436f339` in the container.
+This tooling fix neither accepts that task nor resolves its documentation finding.
+
+The exact transcript final message (event 751) has separate `Reviewed-commit` and
+`Evidence: verified` lines and ends with `APPROVE` and `CEZ:VERDICT approve` on
+separate lines. The displayed combined-header example in the failure report is
+also covered by regression. Crucially, the native stored `review.summary` begins
+with the reviewer's earlier “I’ll verify HEAD first…” commentary, before those
+headers. Cezar also removes the trailing native marker. The old guard assumed the
+first stored line was the SHA header, so it stopped with
+`STOP: report does not refer to current committed HEAD` despite the correct SHA.
+Checking the unstripped final response exposed a second format incompatibility:
+the old guard required the human verdict to be the last line.
+
+`tests/fixtures/cezar-first-live-review.json` preserves the exact final response,
+stored summary, native verdict, implementation SHA and run ID. Tests replay them
+against disposable committed Git repositories, replacing only that SHA with the
+test commit's SHA. Before the fix, 9 of 11 positive format cases failed, including
+the original summary and the combined header. The updated parser accepts a unique
+exact header after commentary, either supported evidence-header format, and a
+consistent optional final native marker. The native record verdict remains
+mandatory. See [the evidence boundary](../explanation/cezar-review-boundary.md)
+for the strict rejection rules and unchanged security limitations.
+
+The reviewer prompt now explicitly requires two separate plain header lines,
+structured findings, one human verdict line and one separate final native marker
+line. Agent/model pins, graph edges, two-repair limit, check commands, container
+preflight and checkpoint-selection rules are unchanged. No real workflow was
+started, no audit result was manually changed, and no runtime record was rewritten
+during this repair.
+
+Repair verification: `UV_CACHE_DIR="$PWD/.cache/uv" mise run check` passed all
+checks with 126 tests, including 102 guard tests (64 added regression cases).
+All 18 existing native graph scenarios passed, with additional assertions against
+the real final response and Cezar's marker-stripping function. SHA-256 checks of
+the original `runs.json` and run transcript were identical before and after the
+repair, and the original task worktree remained clean at its reviewed SHA.
+
+### Why the task used origin/main
+
+The container's local `main` contains three setup commits after `3c1357d`:
+`8f2ad08` (container compatibility), `170772d` (transferred file permissions) and
+`28ddb5f` (authentication/cockpit verification documentation). `origin/main`
+instead contains `c9c201a`, the consolidated host setup commit, after that same
+ancestor. Their commit histories diverge, but `main` and `origin/main` both have
+tree `863fbcf02db595b6763a3ce47d0b10ac7bffc5d2` and their full Git diff is empty,
+including file modes. No required local-only setup content was excluded.
+The task's preflight output confirms its base was the full `c9c201a` SHA.
+
+Installed Cezar 0.19.0's `git-worktree.js` (`chooseForkBase` / `resolveBaseRef`)
+prefers the remote when the default branch diverges, and emits the observed note.
+It preserves a current local branch when equal to or ahead of the remote; for a
+nondefault checked-out branch it also preserves diverged local work. The host's
+`main` and `origin/main` were both `c9c201a` before the isolated fix branch was
+created. No branch was reset and no commit was discarded.
+
+### Recovery and the next live run
+
+The original run is terminal `failed`: its graph took `audit.fail->stopped` and
+has no persisted cursor. In installed 0.19.0, `workflows/run.js` clears the cursor
+when the walk ends. `RunManager.recover` resumes interrupted live checkpoints,
+not terminal failed walks. `continueRun` creates a new synthetic agent step and
+invokes inference; it does not replay just the failed audit and remaining graph.
+The run also retains its original `workflowDef`. Editing the project prompt does
+not retroactively replace that definition. The container and host copies of
+`workflows/run.js`, `workflows/graph.js` and `git-worktree.js` were hash-identical.
+
+There is no supported no-inference resume for this failed run in the inspected
+version. Changing its status/cursor/outputs manually would falsify evidence.
+Keep its branch, run record and transcript intact. After separate authorization,
+the minimal new-run procedure is:
+
+1. Import the verified tooling-fix branch into the disposable checkout using a
+   local bundle/transfer. Check out a **new nondefault branch** containing that
+   fix and the unchanged approved greeting artifacts. Leave the original task
+   branch and divergent `main` intact. With the current unset `baseBranch`, Cezar
+   will fork from that checked-out branch; verify no project override selects
+   another base. Do not push or merge to make the default branch usable.
+2. Reverify the container boundary, clean Git state, `mise run check` and native
+   graph simulations on that base. Confirm the cockpit loads the corrected
+   workflow and retains the existing model pins and disabled automatic resume.
+3. Explicitly start one new `pilot-cross-review` task for the same approved
+   `add-greeting-name` change. This executes fresh implementation/review inference
+   and the normal audits; stop at its human gate. Check the new preflight SHA
+   equals the intended fixed base. Preserve the old implementation and review
+   as historical evidence rather than transplanting their verdict onto a new SHA.
+
+The original task has not reached `final-check`, `final-audit` or human acceptance.
+No new live run is part of the tooling repair.

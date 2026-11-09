@@ -15,6 +15,7 @@ SPEC = importlib.util.spec_from_file_location("cezar_guard", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 GUARD = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GUARD)
+LIVE_REVIEW = Path(__file__).parent / "fixtures/cezar-first-live-review.json"
 
 
 @pytest.fixture
@@ -55,6 +56,160 @@ def report(verdict: str = "approve") -> dict[str, Any]:
 @pytest.mark.parametrize("verdict", ["approve", "changes"])
 def test_valid_current_report(repository: Path, verdict: str) -> None:
     GUARD.audit(report(verdict))
+
+
+@pytest.mark.parametrize("source", ["summary", "final_response", "combined_header"])
+def test_first_live_review(repository: Path, source: str) -> None:
+    """Replay verbatim native evidence, rebinding only SHA to a real test commit."""
+    fixture = json.loads(LIVE_REVIEW.read_text())
+    evidence = report()
+    review = evidence["graphState"]["outputs"]["review"]
+    summary = fixture["review"]["summary"]
+    if source == "final_response":
+        summary = fixture[source]
+    elif source == "combined_header":
+        summary = summary.replace("\nEvidence: verified", " Evidence: verified", 1)
+    review.update(fixture["review"])
+    review["summary"] = summary.replace(fixture["head"], GUARD.git("rev-parse", "HEAD"))
+    GUARD.audit(evidence)
+
+
+@pytest.mark.parametrize("verdict", ["approve", "changes"])
+@pytest.mark.parametrize("combined", [False, True])
+@pytest.mark.parametrize("native_marker", [False, True])
+def test_header_and_marker_formats(
+    repository: Path, verdict: str, combined: bool, native_marker: bool
+) -> None:
+    evidence = report(verdict)
+    review = evidence["graphState"]["outputs"]["review"]
+    if combined:
+        review["summary"] = review["summary"].replace("\nEvidence:", " Evidence:")
+    if native_marker:
+        review["summary"] += f"\nCEZ:VERDICT {verdict}"
+    GUARD.audit(evidence)
+
+
+def test_approval_with_structured_nonblocking_finding(repository: Path) -> None:
+    evidence = report()
+    review = evidence["graphState"]["outputs"]["review"]
+    review["summary"] = review["summary"].replace(
+        "No blocking findings",
+        "[nonblocking] F1 — code.txt:1 — Low; observed/expected/evidence\nNo blocking findings",
+    )
+    GUARD.audit(evidence)
+
+
+@pytest.mark.parametrize("invalid_head", ["0" * 40, "a" * 39, "a" * 41, "A" * 40, ""])
+def test_invalid_snapshot_rejected(repository: Path, invalid_head: str) -> None:
+    evidence = report()
+    evidence["graphState"]["outputs"]["snapshot"]["output"] = invalid_head
+    with pytest.raises(ValueError, match="snapshot"):
+        GUARD.audit(evidence)
+
+
+@pytest.mark.parametrize("verdict", ["", "unverifiable", "APPROVE", "unknown"])
+def test_native_verdict_always_required(repository: Path, verdict: str) -> None:
+    evidence = report()
+    review = evidence["graphState"]["outputs"]["review"]
+    review["summary"] += "\nCEZ:VERDICT approve"
+    review["verdict"] = verdict
+    with pytest.raises(ValueError, match="verdict unavailable"):
+        GUARD.audit(evidence)
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "Reviewed-commit: {head}\nReviewed-commit: {head}\nEvidence: verified",
+        "Reviewed-commit: {head}\nReviewed-commit: {other}\nEvidence: verified",
+        "Reviewed-commit: {head} Evidence: verified\nEvidence: verified",
+        "Reviewed-commit: {head}\nEvidence: verified\nEvidence: unavailable",
+        "Reviewed-commit: {head}\nEvidence: verified\n Evidence: verified",
+        "Reviewed-commit: {head}\nEvidence: verified\n**Evidence: unavailable**",
+        "Reviewed-commit: {head} Evidence: verified\n* Evidence: verified",
+        "Reviewed-commit: {head}\nEvidence: verified\n**Reviewed-commit: {head}**",
+        "Reviewed-commit: {head}\nEvidence: verified\nreviewed-commit: {other}",
+        "Reviewed-commit: {other}\nEvidence: verified",
+        "Reviewed-commit: {head}0\nEvidence: verified",
+        "Reviewed-commit: {head:.12}\nEvidence: verified",
+        "Reviewed-commit: {head}junk\nEvidence: verified",
+        "Reviewed-commit: {head} Evidence: unavailable",
+        "Reviewed-commit: {head} Evidence: verified trailing",
+        "Reviewed-commit: {head} Evidence: verified Evidence: verified",
+        "Reviewed-commit: {head}Evidence: verified",
+        "Reviewed-commit: {head}",
+        "Reviewed-commit: {head}\nEvidence: verified extra",
+        "Reviewed-commit: {head}\nEvidence: unverified\nEvidence: verified",
+        "Reviewed-commit: {head}\n**Evidence: verified**",
+    ],
+)
+def test_reject_ambiguous_or_malformed_headers(repository: Path, header: str) -> None:
+    evidence = report()
+    evidence["graphState"]["outputs"]["review"]["summary"] = (
+        header.format(head=GUARD.git("rev-parse", "HEAD"), other="0" * 40)
+        + "\nNo blocking findings\nAPPROVE"
+    )
+    with pytest.raises(ValueError):
+        GUARD.audit(evidence)
+
+
+@pytest.mark.parametrize(
+    "ending",
+    [
+        "REQUEST CHANGES\nAPPROVE",
+        "APPROVE\nAPPROVE",
+        "APPROVE\nCEZ:VERDICT changes",
+        "APPROVE\nCEZ:VERDICT unverifiable",
+        "APPROVE\nCEZ:VERDICT approve\nCEZ:VERDICT approve",
+        "CEZ:VERDICT changes\nAPPROVE",
+        "APPROVE CEZ:VERDICT approve",
+        "APPROVE\nCEZ:VERDICT:approve",
+        "CEZ:VERDICT approve",
+        "APPROVE\ntrailing text",
+    ],
+)
+def test_reject_conflicting_or_malformed_verdicts(repository: Path, ending: str) -> None:
+    evidence = report()
+    review = evidence["graphState"]["outputs"]["review"]
+    review["summary"] = review["summary"].removesuffix("APPROVE") + ending
+    with pytest.raises(ValueError):
+        GUARD.audit(evidence)
+
+
+@pytest.mark.parametrize(
+    "finding",
+    [
+        "[blocking] F",
+        "[blocking] F1",
+        "[blocking] F1 — no location — defect",
+        "[blocking] F1 — code.txt:0 — defect",
+        "[blocking] F1 — code.txt:1 — ",
+        "[blocking] F0 — code.txt:1 — defect",
+        "[blocking] F1 — code.txt:1 — defect\n[blocking] F1 — code.txt:2 — duplicate",
+        "[nonblocking] F1 — code.txt:1 — only nonblocking",
+        "- F1 — Low, nonblocking — no location: detail",
+        "[blocking] F1 — code.txt:1 — defect\nNo blocking findings",
+        "[blocking] F1 — code.txt:1 — defect\n- F — code.txt:2 — missing ID",
+    ],
+)
+def test_reject_malformed_repair_findings(repository: Path, finding: str) -> None:
+    evidence = report("changes")
+    head = GUARD.git("rev-parse", "HEAD")
+    evidence["graphState"]["outputs"]["review"]["summary"] = (
+        f"Reviewed-commit: {head}\nEvidence: verified\n{finding}\nREQUEST CHANGES"
+    )
+    with pytest.raises(ValueError):
+        GUARD.audit(evidence)
+
+
+def test_approval_cannot_contain_blocking_findings(repository: Path) -> None:
+    evidence = report()
+    review = evidence["graphState"]["outputs"]["review"]
+    review["summary"] = review["summary"].replace(
+        "No blocking findings", "[blocking] F1 — code.txt:1 — defect\nNo blocking findings"
+    )
+    with pytest.raises(ValueError):
+        GUARD.audit(evidence)
 
 
 @pytest.mark.parametrize("mutation", ["unstaged", "staged", "untracked", "committed"])

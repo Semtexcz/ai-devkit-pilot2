@@ -44,6 +44,23 @@ SHA. Both review verdict paths pass an evidence audit. Successful review also
 requires another deterministic check and audit before the human gate. A new repair
 therefore always receives a new commit-bound review.
 
+The evidence parser accepts one exact full-SHA `Reviewed-commit` header after
+optional reviewer commentary. `Evidence: verified` must either immediately follow
+on its own line or be appended to the SHA header with one space. Duplicate or
+ambiguous headers fail closed. This accommodates the first live run's stored
+summary, which contained commentary before the separate headers, and the combined
+header reported from its display. It does not accept abbreviated SHAs or search
+for an arbitrary matching SHA substring.
+
+Cezar strips the trailing native verdict marker before persisting the summary.
+The persisted native verdict and exactly one final human verdict must agree.
+If a marker is present, it must be a single matching final line after that human
+verdict. Findings require a unique positive F-number, status, positive file:line
+location and nonempty explanation; the first live review's explicit nonblocking
+format is also accepted. Approval cannot carry blocking findings, and rejection
+must carry at least one. These checks establish report structure and consistency;
+human review still judges the substance of the evidence.
+
 The bound is two repair attempts after rejected reviews, not two total reviews.
 Check or infrastructure failures stop immediately. Automatic usage-limit and
 transient resumption is disabled in the isolated native Cezar workspace settings.
